@@ -1,1 +1,3 @@
 resources/
+/.cpcache/
+/.nrepl-port
