@@ -16,7 +16,7 @@
   (test/is (= {:rotation/steps 42 :rotation/operator -}
               (parse-rotation "L42"))))
 
-(defn- read-input
+(defn read-input
   "Reads all the lines from `filename` and returns the lines parsed by `parser`."
   ([filename] (read-input filename nil))
   ([filename parser]
@@ -97,12 +97,14 @@
             (-> filename
                 (read-input parse-rotation)
                 (follow-rotations do-rotation)
-                :dial/land-on-zero-count))
+                :dial/land-on-zero-count
+                time))
           (day1part2 [filename]
             (-> filename
                 (read-input parse-rotation)
                 (follow-rotations count-zero-crossings)
-                :dial/zc-count))]
+                :dial/zc-count
+                time))]
     (test/is (-> "day1/test.txt"
                  day1part1
                  (= 3)))
