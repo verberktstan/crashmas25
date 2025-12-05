@@ -1,6 +1,5 @@
 (ns crashmas25.day3
   (:require [clojure.edn :as edn]
-            [clojure.string :as str]
             [clojure.test :as test]
             [crashmas25.day1 :refer [read-input]]))
 
