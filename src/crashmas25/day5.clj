@@ -36,13 +36,53 @@
        seq
        boolean))
 
-(defn- fresh-ids [filename]
+(defn- read-data [filename]
   (let [coll (read-input filename parse-numbers)
         ranges (filter :from coll)]
-    (time (->> coll
-               (keep :id)
-               (filter #(fresh? % ranges))))))
+    {:coll coll :ranges ranges}))
+
+(defn- fresh-ids [{:keys [coll ranges]}]
+  (time (->> coll
+             (keep :id)
+             (filter #(fresh? % ranges)))))
 
 (test/deftest day5part1-test
-  (test/is (= 3 (-> "day5/test.txt" fresh-ids count)))
-  (test/is (= 756 (-> "day5/input.txt" fresh-ids count))))
+  (test/is (= 3 (-> "day5/test.txt" read-data fresh-ids count)))
+  (test/is (= 756 (-> "day5/input.txt" read-data fresh-ids count))))
+
+;; NOTE: Naive approach
+(defn- all-ids-in-ranges [{:keys [ranges]}]
+  (->> ranges
+       (reduce (fn [s {:keys [from to]}] (into s (range from (inc to)))) #{})
+       time))
+
+(test/deftest day5part2-test
+  (test/is (= 14 (-> "day5/test.txt" read-data all-ids-in-ranges count)))
+  #_(test/is (= 14 (-> "day5/input.txt" read-data all-ids-in-ranges #_count))))
+
+(defn- any-overlap? [{:keys [from to]} ranges]
+  (when-let [overlapping-ranges (some->> ranges
+                                        (filter (fn [{from2 :from to2 :to}]
+                                                  (or (<= from2 from to2)
+                                                      (<= from2 to to2))))
+                                        seq)]
+    overlapping-ranges))
+
+(defn- merge-ranges [{from1 :from to1 :to} {from2 :from to2 :to}]
+  {:from (min from1 from2)
+   :to (max to1 to2)})
+
+(defn- combine-overlapping-ranges [{:keys [ranges]}]
+  (reduce
+   (fn [coll r] (if-let [overlapping-ranges (any-overlap? r coll)]
+                  (-> (apply disj coll overlapping-ranges)
+                      (conj (reduce merge-ranges r overlapping-ranges)))
+                  (conj coll r)))
+   #{}
+   ranges))
+
+(test/deftest combine-overlapping-ranges-test
+  (test/is (= #{{:from 10, :to 20} {:from 3, :to 5}}
+              (-> "day5/test.txt" read-data combine-overlapping-ranges)))
+  (test/is (= 100 ;; Should find total of 100 combined ranges
+              (-> "day5/input.txt" read-data combine-overlapping-ranges count))))
