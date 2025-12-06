@@ -29,3 +29,20 @@
                  {:id 17}
                  {:id 32}]
                 (read-input "day5/test.txt" parse-numbers)))))
+
+(defn- fresh? [id ranges]
+  (->> ranges
+       (into [] (comp (filter #(<= (:from %) id (:to %))) (take 1)))
+       seq
+       boolean))
+
+(defn- fresh-ids [filename]
+  (let [coll (read-input filename parse-numbers)
+        ranges (filter :from coll)]
+    (time (->> coll
+               (keep :id)
+               (filter #(fresh? % ranges))))))
+
+(test/deftest day5part1-test
+  (test/is (= 3 (-> "day5/test.txt" fresh-ids count)))
+  (test/is (= 756 (-> "day5/input.txt" fresh-ids count))))
