@@ -50,39 +50,54 @@
   (test/is (= 3 (-> "day5/test.txt" read-data fresh-ids count)))
   (test/is (= 756 (-> "day5/input.txt" read-data fresh-ids count))))
 
-;; NOTE: Naive approach
-(defn- all-ids-in-ranges [{:keys [ranges]}]
-  (->> ranges
-       (reduce (fn [s {:keys [from to]}] (into s (range from (inc to)))) #{})
-       time))
-
-(test/deftest day5part2-test
-  (test/is (= 14 (-> "day5/test.txt" read-data all-ids-in-ranges count)))
-  #_(test/is (= 14 (-> "day5/input.txt" read-data all-ids-in-ranges #_count))))
-
 (defn- any-overlap? [{:keys [from to]} ranges]
-  (when-let [overlapping-ranges (some->> ranges
-                                        (filter (fn [{from2 :from to2 :to}]
-                                                  (or (<= from2 from to2)
-                                                      (<= from2 to to2))))
-                                        seq)]
-    overlapping-ranges))
+  (some->> ranges
+           (filter (fn [{from2 :from to2 :to}]
+                     (or (<= from2 from to2)
+                         (<= from2 to to2)
+                         (<= from from2 to2 to)
+                         (<= from2 from to to2))))
+           seq))
+
+(test/deftest any-overlap?-test
+  (test/is (= [{:from 2 :to 3}]
+              (any-overlap? {:from 1 :to 2} [{:from 2 :to 3} {:from 8 :to 9}])))
+  (test/is (= [{:from 2 :to 3} {:from 8 :to 9}]
+              (any-overlap? {:from 1 :to 8} [{:from 2 :to 3} {:from 8 :to 9}]))))
 
 (defn- merge-ranges [{from1 :from to1 :to} {from2 :from to2 :to}]
   {:from (min from1 from2)
-   :to (max to1 to2)})
+   :to   (max to1 to2)})
+
+(defn- merge-or-conj-ranges [{:keys [coll] :as m} r]
+  (if-let [overlapping-ranges (any-overlap? r coll)]
+    (->
+     (assoc m :overlap-combined? true)
+     (update :coll #(apply disj % overlapping-ranges))
+     (update :coll conj (reduce merge-ranges r overlapping-ranges)))
+    (update m :coll conj r)))
 
 (defn- combine-overlapping-ranges [{:keys [ranges]}]
-  (reduce
-   (fn [coll r] (if-let [overlapping-ranges (any-overlap? r coll)]
-                  (-> (apply disj coll overlapping-ranges)
-                      (conj (reduce merge-ranges r overlapping-ranges)))
-                  (conj coll r)))
-   #{}
-   ranges))
+  (reduce merge-or-conj-ranges {:coll #{} :overlap-combined? false} ranges))
 
-(test/deftest combine-overlapping-ranges-test
+(defn- deep-combine [{:keys [ranges]}]
+  (loop [{:keys [coll overlap-combined?]} {:coll              ranges
+                                           :overlap-combined? true}]
+    (if (not overlap-combined?)
+      coll
+      (recur (combine-overlapping-ranges {:ranges coll})))))
+
+(test/deftest deep-combine-test
   (test/is (= #{{:from 10, :to 20} {:from 3, :to 5}}
-              (-> "day5/test.txt" read-data combine-overlapping-ranges)))
-  (test/is (= 100 ;; Should find total of 100 combined ranges
-              (-> "day5/input.txt" read-data combine-overlapping-ranges count))))
+              (-> "day5/test.txt" read-data deep-combine)))
+  (test/is (= 97 ;; Should find total of 97 combined ranges
+              (-> "day5/input.txt" read-data deep-combine count))))
+
+(defn- range-difference [{:keys [from to]}]
+  (- (inc to) from))
+
+(test/deftest day5part2-test
+  (letfn [(day5part2 [filename]
+            (->> filename read-data deep-combine (map range-difference) (reduce +') time))]
+    (test/is (= 14 (day5part2 "day5/test.txt")))
+    (test/is (= 355555479253787 (day5part2 "day5/input.txt")))))
